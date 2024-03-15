@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# bash, too, uses the same concepts as any other scripting language. Below are arrays that hold information for outputs and also the 
+# naming conventions for the two main directories 
+#sel 1 = with loop, sel2= without loop
+a=( "set1" "set2") # this is the naming for outputs (ie which one of the systems, for this - protonation states)
+b=( "active" "inactive" "cryoem" ) # this is the naming for outputs (ie which one of the systems, for this - protonation states)
+
+for j in `seq 0 1` # loops through 5 sub directories 
+do 
+
+for k in `seq 0 2` # loops through 5 sub directories 
+do 
+
+
+cat > rmsd_protein.tcl << EOF
+mol new /BSL6/cb1/${a[j]}/${b[k]}/dcd/step5_input.psf
+mol addfile /BSL6/cb1/${a[j]}/${b[k]}/dcd/step5_input.pdb
+mol addfile /BSL6/cb1/${a[j]}/${b[k]}/dcd/all.dcd type dcd first 0 last -1 step 5 filebonds 1 autobonds 1 waitfor all
+
+set sel1 [atomselect 0 "protein"]
+set sel2 [atomselect 0 "protein and not resid 208 to 237 and alpha"]
+#ciregion
+
+set refsel1 [atomselect 0 "protein" frame 0]
+set refsel2 [atomselect 0 "protein and not resid 208 to 237 and alpha" frame 0]
+
+
+set all [atomselect 0 "all"]
+
+set num_steps [molinfo 0 get numframes]
+for {set frame 1} {\$frame < \$num_steps} {incr frame} {
+    #\$sel frame \$frame
+    \$all frame \$frame
+    \$sel1 frame \$frame
+    set trans [measure fit \$sel1 \$refsel1]
+    \$all move \$trans
+    set rmsdh1 [measure rmsd \$sel1 \$refsel1]
+    #
+ \$all frame \$frame
+    \$sel2 frame \$frame
+    set trans [measure fit \$sel2 \$refsel2]
+    \$all move \$trans
+    set rmsdh2 [measure rmsd \$sel2 \$refsel2]
+    #
+ 
+     puts stderr "\$frame \$rmsdh1 \$rmsdh2"
+
+}
+quit
+EOF
+
+vmd -dispdev text -e rmsd_protein.tcl 2> ${a[j]}_${b[k]}_rmsd_protein.txt
+
+
+done
+done
